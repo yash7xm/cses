@@ -2,90 +2,71 @@
 using namespace std;
 
 const int N = 8;
-
-// Knight moves
 int dx[8] = {2, 1, -1, -2, -2, -1, 1, 2};
 int dy[8] = {1, 2, 2, 1, -1, -2, -2, -1};
 
-bool isValid(int x, int y, vector<vector<int>>& board) {
-    return (x >= 0 && x < N && y >= 0 && y < N && board[x][y] == 0);
+inline bool inside(int x, int y) {
+    return x >= 0 && x < N && y >= 0 && y < N;
 }
 
 int countMoves(int x, int y, vector<vector<int>>& board) {
     int cnt = 0;
-    for(int i = 0; i < 8; ++i) {
-        int nx = x + dx[i], ny = y + dy[i];
-        if(isValid(nx, ny, board)) cnt++;
+    for (int k = 0; k < 8; ++k) {
+        int nx = x + dx[k], ny = y + dy[k];
+        if (inside(nx, ny) && board[nx][ny] == 0) ++cnt;
     }
     return cnt;
+}
+
+// DFS with Warnsdorff ordering
+bool dfs(int x, int y, int step, vector<vector<int>>& board) {
+    board[x][y] = step;
+    if (step == N * N) return true;
+
+    // collect candidates and sort by onward moves (Warnsdorff)
+    vector<pair<int, pair<int,int>>> cand; // (deg, (nx,ny))
+    cand.reserve(8);
+    for (int k = 0; k < 8; ++k) {
+        int nx = x + dx[k], ny = y + dy[k];
+        if (inside(nx, ny) && board[nx][ny] == 0) {
+            int deg = countMoves(nx, ny, board);
+            cand.push_back({deg, {nx, ny}});
+        }
+    }
+
+    sort(cand.begin(), cand.end()); // ascending by deg
+
+    for (auto &p : cand) {
+        int nx = p.second.first, ny = p.second.second;
+        if (dfs(nx, ny, step + 1, board)) return true;
+    }
+
+    // backtrack
+    board[x][y] = 0;
+    return false;
 }
 
 int main() {
     ios::sync_with_stdio(false);
     cin.tie(nullptr);
 
-    int startX, startY;
-    cin >> startX >> startY;
-    
-    // Convert to 0-based indices, keeping the same coordinate system
-    // The input uses chess coordinates where (1,1) is bottom-left
-    // We'll map it so that (0,0) in our array is position (1,1) on chessboard
-    startX--; startY--;
-    
-    // But wait - in chess, coordinates are usually given as (column, row)
-    // Let's be explicit: the first input is x (column), second is y (row)
-    int x = startY;  // row index (0-7)
-    int y = startX;  // column index (0-7)
+    int sx, sy;
+    if (!(cin >> sx >> sy)) return 0;
+    --sx; --sy; // convert to 0-index
 
     vector<vector<int>> board(N, vector<int>(N, 0));
 
-    for(int step = 1; step <= N * N; ++step) {
-        board[x][y] = step;
-
-        int bestNextX = -1, bestNextY = -1, minDeg = 9;
-
-        for(int i = 0; i < 8; ++i) {
-            int nx = x + dx[i], ny = y + dy[i];
-            if(!isValid(nx, ny, board)) continue;
-
-            int deg = countMoves(nx, ny, board);
-            if(deg < minDeg || (deg == minDeg && rand() % 2 == 0)) {
-                minDeg = deg;
-                bestNextX = nx;
-                bestNextY = ny;
-            }
-        }
-
-        if(bestNextX == -1) {
-            // If no valid move found but we haven't completed the tour,
-            // we need to handle this case
-            if(step < N * N) {
-                // This shouldn't happen with a good heuristic
-                // Let's try to find any valid move
-                for(int i = 0; i < 8; ++i) {
-                    int nx = x + dx[i], ny = y + dy[i];
-                    if(isValid(nx, ny, board)) {
-                        bestNextX = nx;
-                        bestNextY = ny;
-                        break;
-                    }
-                }
-            }
-            if(bestNextX == -1) break;
-        }
-        
-        x = bestNextX;
-        y = bestNextY;
+    bool ok = dfs(sy, sx, 1, board);
+    if (!ok) {
+        cout << "No solution\n";
+        return 0;
     }
 
-    // Output the board
-    for(int i = 0; i < N; ++i) {
-        for(int j = 0; j < N; ++j) {
-            cout << board[i][j];
-            if(j < N - 1) cout << " ";
+    for (int i = 0; i < N; ++i) {
+        for (int j = 0; j < N; ++j) {
+            cout << board[i][j] << (j+1==N?'\n':' ');
         }
-        cout << "\n";
     }
-
     return 0;
 }
+
